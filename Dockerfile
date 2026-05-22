@@ -4,11 +4,11 @@ WORKDIR /src
 COPY . .
 RUN dotnet publish -c Release -o /app/publish
 
-RUN ls /app/publish
-
 FROM mcr.microsoft.com/dotnet/runtime:8.0
 WORKDIR /app
 
-COPY --from=build /app/publish .
+COPY --from=build /app/publish/ ./
 
-ENTRYPOINT ["dotnet", "bbQuiz.dll"]
+RUN ls -la
+
+ENTRYPOINT ["dotnet", "/app/bbQuiz.dll"]
