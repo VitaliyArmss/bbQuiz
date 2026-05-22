@@ -77,10 +77,8 @@ class Program
 
         var me = await botClient.GetMe();
         Console.WriteLine($"Бот @{me.Username} запущен");
-        Console.WriteLine(await GetHint("Spider-man", 3));
 
-        Console.ReadLine();
-        cts.Cancel();
+        await Task.Delay(Timeout.Infinite, cts.Token);
     }
 
     static async Task HandleUpdateAsync(
