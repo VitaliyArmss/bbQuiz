@@ -12,4 +12,4 @@ COPY --from=build /app/publish/ ./
 
 RUN ls -la /app
 
-ENTRYPOINT ["dotnet", "bbQuiz.dll"]
+ENTRYPOINT ["./bbQuiz"]
