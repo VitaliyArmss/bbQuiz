@@ -5,9 +5,6 @@ COPY . .
 
 RUN dotnet publish -c Release -o /app/publish
 
-# ןנמגונךא קעמ פאיכ נואכüםמ וסעü
-RUN ls -la /app/publish
-
 FROM mcr.microsoft.com/dotnet/runtime:8.0
 WORKDIR /app
 
