@@ -292,7 +292,7 @@ namespace bbQuiz
             CancellationToken cancellationToken)
         {
             BotLogger.Errors.Error(exception, "Произошла ошибка");
-            Console.WriteLine(exception.Message);
+            Console.WriteLine(exception);
             return Task.CompletedTask;
         }
     }
