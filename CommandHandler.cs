@@ -52,8 +52,14 @@ namespace bbQuiz
 
                     _ = Task.Run(async () =>
                     {
-                        await Task.Delay(1000);
-                        await BotLogic.MoveNextQuestion(botClient, chatId);
+                        try
+                        {
+                            await Task.Delay(1000);
+                            await BotLogic.MoveNextQuestion(botClient, chatId);
+                        }
+                        catch (Exception ex) {
+                            BotLogger.Errors.Error("Ошибка скипа в чате: {chatId}");
+                        }
                     });
                 }
                 game.EmptyRounds = 0; // обновляем счетчик пустых раундов, если кто-то написал сообщение

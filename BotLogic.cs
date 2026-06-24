@@ -48,8 +48,10 @@ namespace bbQuiz
 
             var me = await botClient.GetMe();
             Console.WriteLine($"Бот @{me.Username} запущен");
+            BotLogger.Settings.Information("Бот запущен");
 
             await Task.Delay(Timeout.Infinite, cts.Token);
+            BotLogger.Settings.Information("Бот выключен");
         }
 
         internal static async Task StartGame(
@@ -75,6 +77,8 @@ namespace bbQuiz
 
                 game.isStarting = false;
 
+                BotLogger.Game.Information("Запущена игра в чате {chatId}, категория: {category}", chatId, game.Category);
+
                 await botClient.SendMessage(chatId,
                 $"🎮 Викторина началась!\n\nВопрос 1:\n{first.Key}");
 
@@ -83,6 +87,7 @@ namespace bbQuiz
 
             catch (Exception ex) {
                 game.isStarting = true;
+                BotLogger.Errors.Error("Ошибка при запуске игры в чате: {chatId}. {ex.message}", chatId, ex.Message);
                 Console.WriteLine($"{ex.Message}");
             }
             
@@ -100,50 +105,61 @@ namespace bbQuiz
 
             _ = Task.Run(async () =>
             {
-                string answer;
-
-                await game.Lock.WaitAsync();
                 try
                 {
-                    answer = game.Questions[game.Index].Value;
-                }
-                finally
-                {
-                    game.Lock.Release();
-                }
+                    string answer;
 
-                var steps = new[] { 0, answer.Length / 3 };
+                    await game.Lock.WaitAsync();
+                    try
+                    {
+                        answer = game.Questions[game.Index].Value;
+                    }
+                    finally
+                    {
+                        game.Lock.Release();
+                    }
 
-                foreach (var step in steps)
-                {
+                    var steps = new[] { 0, answer.Length / 3 };
+
+                    foreach (var step in steps)
+                    {
+                        await Task.Delay(time * 1000, cts.Token);
+                        if (cts.Token.IsCancellationRequested) return;
+
+                        var hint = await GetHint(answer, step);
+                        await botClient.SendMessage(chatId, $"💡 Подсказка:\n{hint}");
+                    }
+
                     await Task.Delay(time * 1000, cts.Token);
                     if (cts.Token.IsCancellationRequested) return;
 
-                    var hint = await GetHint(answer, step);
-                    await botClient.SendMessage(chatId, $"💡 Подсказка:\n{hint}");
-                }
-
-                await Task.Delay(time * 1000, cts.Token);
-                if (cts.Token.IsCancellationRequested) return;
-
-                await game.Lock.WaitAsync();
-                try
-                {
-                    if (game.ActiveQuestion)
+                    await game.Lock.WaitAsync();
+                    try
                     {
-                        game.ActiveQuestion = false;
+                        if (game.ActiveQuestion)
+                        {
+                            game.ActiveQuestion = false;
 
-                        await botClient.SendMessage(chatId,
-                            $"⏰ Время вышло! Ответ: {answer}");
+                            await botClient.SendMessage(chatId,
+                                $"⏰ Время вышло! Ответ: {answer}");
+                        }
                     }
-                }
-                finally
-                {
-                    game.Lock.Release();
-                }
+                    finally
+                    {
+                        game.Lock.Release();
+                    }
 
-                await Task.Delay(1000);
-                await MoveNextQuestion(botClient, chatId);
+                    await Task.Delay(1000);
+                    BotLogger.Game.Information("В чате {chat_id} переход к след. вопросу", chatId);
+                    await MoveNextQuestion(botClient, chatId);
+                }
+                catch (OperationCanceledException ex) { }
+                catch (Exception ex)
+                {
+                    BotLogger.Errors.Error(
+                        ex,
+                        "Ошибка в таймере вопроса, chatId:{chatId}", chatId);
+                }
             });
         }
 
@@ -298,8 +314,7 @@ namespace bbQuiz
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Ошибка при получении вопросов: {ex.Message}");
-                return null;
+                throw new Exception($"Ошибка при получении вопросов: {ex.Message}");
             }
 
             return dict;
@@ -358,6 +373,8 @@ namespace bbQuiz
             {
                 game.Lock.Release();
             }
+
+            BotLogger.Game.Information("Чат {chatId}: игра завершена!", chatId);
 
             await SaveResults(botClient, chatId);
             await ShowResults(botClient, chatId);

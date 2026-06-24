@@ -116,8 +116,11 @@ namespace bbQuiz
                 return;
             }
 
-            if (await HandleCommand(botClient, message)) return;
-
+            if (await HandleCommand(botClient, message))
+            {
+                BotLogger.Commands.Information("Команда от {UserId} в чате {ChatId}: {Text}", message.From.Id, message.Chat.Id, message.Text);
+                return;
+            }
             if (BotData.Games.TryGetValue(chatId, out var game))
             {
                 await HandleAnswer(botClient, message, game);
@@ -196,13 +199,22 @@ namespace bbQuiz
 
                     game.Timer?.Cancel();
 
+                    BotLogger.Game.Information("Чат {chatId}: {userId} ответил правильно: {message}", message.Chat.Id, message.From.Id, message.Text);
+
                     await botClient.SendMessage(message.Chat.Id,
                         $"✅ {message.From.FirstName} ответил правильно!");
 
                     _ = Task.Run(async () =>
                     {
-                        await Task.Delay(1000);
-                        await BotLogic.MoveNextQuestion(botClient, message.Chat.Id);
+                        try
+                        {
+                            await Task.Delay(1000);
+                            await BotLogic.MoveNextQuestion(botClient, message.Chat.Id);
+                        }
+                        catch (Exception ex)
+                        {
+                            BotLogger.Errors.Error("Ошибка перехода к след. вопросу в чате: {chatId}. {message}", message.Chat.Id, ex.Message);
+                        }
                     });
                 }
             }
@@ -235,6 +247,8 @@ namespace bbQuiz
                             await ChatSettings.SetSkipsNeed(chatId, skips);
                             await ChatSettings.CancelSettings(chatId);
 
+                            BotLogger.Settings.Information("Чат {chatId} изменил skips_needed на {skips}", chatId, skips);
+
                             await botClient.SendMessage(
                                 chatId,
                                 $"Кол-во скипов для пропуска вопроса установлено на {skips}.");
@@ -251,6 +265,8 @@ namespace bbQuiz
                         {
                             await ChatSettings.SetTimeBetweenHints(chatId, time);
                             await ChatSettings.CancelSettings(chatId);
+
+                            BotLogger.Settings.Information("Чат {chatId} изменил time_between_hints на {time}", chatId, time);
 
                             await botClient.SendMessage(
                                 chatId,
@@ -275,6 +291,7 @@ namespace bbQuiz
             Exception exception,
             CancellationToken cancellationToken)
         {
+            BotLogger.Errors.Error(exception, "Произошла ошибка");
             Console.WriteLine(exception.Message);
             return Task.CompletedTask;
         }
